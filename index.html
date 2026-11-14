@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>현주의 TEPS 기출 보카</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .day-btn.active { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+        .speak-btn:active { transform: scale(0.95); }
+        .drag-handle { cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+        .word-card.dragging { opacity: 0.4; border: 2px dashed #4f46e5; }
+        .word-card.drag-over { border-top: 3px solid #4f46e5; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="max-w-md mx-auto min-h-screen bg-white shadow-lg flex flex-col">
+        
+        <!-- Header -->
+        <header class="bg-indigo-600 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
+            <div class="w-10"></div> <!-- Spacer for centering -->
+            <div class="text-center">
+                <h1 class="text-3xl font-extrabold tracking-wide">현주의</h1>
+                <p class="text-sm opacity-90 mt-1 font-medium tracking-wider">TEPS 기출 보카</p>
+            </div>
+            <button onclick="openAddModal()" class="bg-white text-indigo-600 w-10 h-10 rounded-full shadow hover:bg-gray-100 flex items-center justify-center transition-colors" title="단어 추가하기">
+                <i class="fas fa-plus"></i>
+            </button>
+        </header>
+
+        <!-- Day Selection Slider -->
+        <div class="bg-indigo-50 border-b border-indigo-100 p-3 overflow-x-auto whitespace-nowrap scrollbar-hide flex gap-2" id="day-selector">
+            <!-- Day buttons will be generated here -->
+        </div>
+
+        <!-- Topic Info & Action Bar -->
+        <div class="px-4 py-3 bg-white border-b border-gray-100 flex items-center justify-between gap-2">
+            <div>
+                <div class="flex items-center gap-1.5">
+                    <h2 class="text-base font-bold text-indigo-800 leading-tight" id="current-topic">주제: 로딩중...</h2>
+                    <button onclick="editTopic()" class="text-gray-400 hover:text-indigo-600 p-1 rounded hover:bg-gray-100 transition-colors text-xs" title="주제 수정">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+                <span class="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block" id="word-count">0 단어</span>
+            </div>
+            <!-- Shuffle Button -->
+            <button onclick="shuffleWords()" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium text-xs px-3 py-2 rounded-lg border border-indigo-200 flex items-center gap-1.5 transition-colors shrink-0" title="단어 순서 섞기">
+                <i class="fas fa-random"></i>
+                <span>랜덤 섞기</span>
+            </button>
+        </div>
+
+        <!-- Word List Container -->
+        <main class="flex-1 overflow-y-auto p-4 bg-gray-50" id="word-list">
+            <!-- Words will be rendered here -->
+        </main>
+
+        <!-- Footer -->
+        <footer class="p-4 border-t border-gray-200 text-center text-xs text-gray-400 bg-white">
+            구글 시트 연동형 TEPS 보카 앱
+        </footer>
+    </div>
+
+    <!-- Add Word Modal -->
+    <div id="addModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="modalTitle" class="text-xl font-bold text-gray-800">새 단어 추가하기</h2>
+                <button onclick="closeAddModal()" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form id="addWordForm" onsubmit="handleAddWord(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Day (일차)</label>
+                    <input type="number" id="inputDay" min="1" max="30" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">단어 (Word)</label>
+                    <input type="text" id="inputWord" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">뜻 (Meaning)</label>
+                    <input type="text" id="inputMeaning" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                
+                <div class="pt-2 border-t border-gray-100">
+                    <label class="block text-sm font-semibold text-indigo-600 mb-1">예문 1</label>
+                    <input type="text" id="inputEx1En" placeholder="영어 예문" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 mb-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <input type="text" id="inputEx1Ko" placeholder="한글 해석" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+
+                <div class="pt-2 border-t border-gray-100">
+                    <label class="block text-sm font-semibold text-indigo-600 mb-1">예문 2</label>
+                    <input type="text" id="inputEx2En" placeholder="영어 예문" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 mb-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <input type="text" id="inputEx2Ko" placeholder="한글 해석" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6 pt-4">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium">취소</button>
+                    <button type="submit" id="modalSubmitBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 text-center">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800 mb-2">단어 삭제</h2>
+            <p class="text-gray-600 mb-6">이 단어를 정말 삭제하시겠습니까?<br>삭제 후에는 시트에서도 삭제됩니다.</p>
+            <div class="flex justify-center gap-2">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium w-24">취소</button>
+                <button onclick="executeDelete()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium w-24">삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Apps Script 웹 앱 배포 URL 연결
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxfeQiYssu0gvnXlRxNnZsOHPokhNiyybR2pZ3e7dp9CxE7PaCVSkQkHJccR8izmK8jwQ/exec";
+
+        const defaultData = {
+            1: {
+                topic: "경제 & 비즈니스 (Economy & Business)",
+                words: [
+                    {
+                        word: "fluctuate",
+                        meaning: "변동하다, 오르내리다",
+                        examples: [
+                            { en: "Stock prices fluctuate daily.", ko: "주가는 매일 변동한다." },
+                            { en: "The exchange rate has been fluctuating wildly.", ko: "환율이 심하게 요동치고 있다." }
+                        ]
+                    },
+                    {
+                        word: "lucrative",
+                        meaning: "수익성이 좋은, 돈이 되는",
+                        examples: [
+                            { en: "He gave up a lucrative career as a lawyer.", ko: "그는 변호사라는 수입이 좋은 직업을 포기했다." },
+                            { en: "The business proved to be highly lucrative.", ko: "그 사업은 수익성이 매우 높은 것으로 판명되었다." }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        let vocaData = {};
+        let currentDay = 1;
+        const totalDays = 30;
+        let editingIndex = -1;
+        let deletingIndex = -1;
+        let draggedIndex = null;
+
+        // 구글 시트에서 데이터 불러오기 (GET)
+        async function initData() {
+            document.getElementById('current-topic').innerText = "구글 시트 연동 중...";
+            // 초기 로딩 중에도 Day 버튼들이 바로 보이도록 먼저 렌더링
+            renderDays();
+            try {
+                const response = await fetch(SCRIPT_URL);
+                const sheetData = await response.json();
+                
+                if (sheetData && Object.keys(sheetData).length > 0) {
+                    vocaData = sheetData;
+                } else {
+                    vocaData = JSON.parse(JSON.stringify(defaultData));
+                    await saveData(); // 시트가 비어있다면 기본 예시 데이터 전송
+                }
+            } catch (error) {
+                console.error("시트 불러오기 실패:", error);
+                alert("구글 시트 데이터를 불러오지 못했습니다. 기본 데이터를 표시합니다.");
+                vocaData = JSON.parse(JSON.stringify(defaultData));
+            }
+            renderDays();
+            renderWords();
+        }
+
+        // 구글 시트에 데이터 저장하기 (POST)
+        async function saveData() {
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8"
+                    },
+                    body: JSON.stringify(vocaData)
+                });
+            } catch (error) {
+                console.error("시트 저장 실패:", error);
+                alert("구글 시트 저장 중 오류가 발생했습니다.");
+            }
+        }
+
+        // 주제(Topic) 수정 기능
+        function editTopic() {
+            if (!vocaData[currentDay]) {
+                vocaData[currentDay] = { topic: `Day ${currentDay} 학습`, words: [] };
+            }
+            const currentTopic = vocaData[currentDay].topic || `Day ${currentDay} 학습`;
+            const newTopic = prompt(`Day ${currentDay}의 주제를 입력하세요:`, currentTopic);
+            
+            if (newTopic !== null && newTopic.trim() !== "") {
+                vocaData[currentDay].topic = newTopic.trim();
+                saveData();
+                renderWords();
+            }
+        }
+
+        // Text-to-Speech function
+        function speak(text) {
+            if (!window.speechSynthesis) {
+                alert("이 브라우저는 음성 합성을 지원하지 않습니다.");
+                return;
+            }
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(voice => voice.lang === 'en-US' && voice.name.includes('Google'));
+            if(preferredVoice) {
+                utterance.voice = preferredVoice;
+            }
+            window.speechSynthesis.speak(utterance);
+        }
+
+        window.speechSynthesis.onvoiceschanged = function() {
+            window.speechSynthesis.getVoices();
+        };
+
+        // Reordering Functions
+        function moveWord(index, direction) {
+            const words = vocaData[currentDay].words;
+            const targetIndex = index + direction;
+            
+            if (targetIndex < 0 || targetIndex >= words.length) return;
+            
+            const temp = words[index];
+            words[index] = words[targetIndex];
+            words[targetIndex] = temp;
+            
+            saveData();
+            renderWords();
+        }
+
+        function shuffleWords() {
+            const words = vocaData[currentDay]?.words;
+            if (!words || words.length <= 1) return;
+
+            for (let i = words.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [words[i], words[j]] = [words[j], words[i]];
+            }
+
+            saveData();
+            renderWords();
+        }
+
+        // Modal Functions
+        function openAddModal() {
+            editingIndex = -1;
+            document.getElementById('modalTitle').innerText = '새 단어 추가하기';
+            document.getElementById('modalSubmitBtn').innerText = '저장하기';
+            document.getElementById('inputDay').value = currentDay;
+            document.getElementById('addModal').classList.remove('hidden');
+        }
+
+        function openEditModal(index) {
+            editingIndex = index;
+            const wordData = vocaData[currentDay].words[index];
+            
+            document.getElementById('modalTitle').innerText = '단어 수정하기';
+            document.getElementById('modalSubmitBtn').innerText = '수정하기';
+            
+            document.getElementById('inputDay').value = currentDay;
+            document.getElementById('inputWord').value = wordData.word;
+            document.getElementById('inputMeaning').value = wordData.meaning;
+            
+            if (wordData.examples && wordData.examples.length > 0) {
+                document.getElementById('inputEx1En').value = wordData.examples[0].en || '';
+                document.getElementById('inputEx1Ko').value = wordData.examples[0].ko || '';
+            } else {
+                document.getElementById('inputEx1En').value = '';
+                document.getElementById('inputEx1Ko').value = '';
+            }
+            
+            if (wordData.examples && wordData.examples.length > 1) {
+                document.getElementById('inputEx2En').value = wordData.examples[1].en || '';
+                document.getElementById('inputEx2Ko').value = wordData.examples[1].ko || '';
+            } else {
+                document.getElementById('inputEx2En').value = '';
+                document.getElementById('inputEx2Ko').value = '';
+            }
+
+            document.getElementById('addModal').classList.remove('hidden');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.add('hidden');
+            document.getElementById('addWordForm').reset();
+            editingIndex = -1;
+        }
+
+        function openDeleteModal(index) {
+            deletingIndex = index;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            deletingIndex = -1;
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+
+        function executeDelete() {
+            if (deletingIndex > -1) {
+                vocaData[currentDay].words.splice(deletingIndex, 1);
+                saveData();
+                renderWords();
+                closeDeleteModal();
+            }
+        }
+
+        // Handle Form Submission
+        function handleAddWord(event) {
+            event.preventDefault();
+            
+            const day = parseInt(document.getElementById('inputDay').value);
+            const word = document.getElementById('inputWord').value.trim();
+            const meaning = document.getElementById('inputMeaning').value.trim();
+            
+            const ex1En = document.getElementById('inputEx1En').value.trim();
+            const ex1Ko = document.getElementById('inputEx1Ko').value.trim();
+            const ex2En = document.getElementById('inputEx2En').value.trim();
+            const ex2Ko = document.getElementById('inputEx2Ko').value.trim();
+
+            if (!vocaData[day]) {
+                vocaData[day] = { topic: `Day ${day} 학습 (직접 추가됨)`, words: [] };
+            }
+
+            const examples = [];
+            if (ex1En || ex1Ko) examples.push({ en: ex1En, ko: ex1Ko });
+            if (ex2En || ex2Ko) examples.push({ en: ex2En, ko: ex2Ko });
+
+            if (editingIndex === -1) {
+                vocaData[day].words.push({ word, meaning, examples });
+            } else {
+                if (day !== currentDay) {
+                    vocaData[currentDay].words.splice(editingIndex, 1);
+                    vocaData[day].words.push({ word, meaning, examples });
+                } else {
+                    vocaData[day].words[editingIndex] = { word, meaning, examples };
+                }
+            }
+
+            saveData();
+            closeAddModal();
+            
+            if (currentDay !== day) {
+                currentDay = day;
+                renderDays();
+            }
+            renderWords();
+            
+            if (editingIndex === -1) {
+                setTimeout(() => {
+                    const list = document.getElementById('word-list');
+                    list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+                }, 100);
+            }
+        }
+
+        // Drag and Drop Event Handlers
+        function handleDragStart(e, index) {
+            draggedIndex = index;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', index);
+            setTimeout(() => e.target.classList.add('dragging'), 0);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, targetIndex) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            if (draggedIndex === null || draggedIndex === targetIndex) return;
+            
+            const words = vocaData[currentDay].words;
+            const movedItem = words.splice(draggedIndex, 1)[0];
+            words.splice(targetIndex, 0, movedItem);
+            
+            draggedIndex = null;
+            saveData();
+            renderWords();
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedIndex = null;
+            document.querySelectorAll('.word-card').forEach(card => card.classList.remove('drag-over'));
+        }
+
+        // Render UI (Day 1~30 모두 활성화 및 클릭 가능)
+        function renderDays() {
+            const selector = document.getElementById('day-selector');
+            selector.innerHTML = '';
+            for (let i = 1; i <= totalDays; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `day-btn shrink-0 px-4 py-2 rounded-full border border-indigo-200 font-semibold text-sm transition-colors duration-200 cursor-pointer ${i === currentDay ? 'active' : 'bg-white text-indigo-600 hover:bg-indigo-50'}`;
+                btn.innerText = `Day ${i}`;
+                
+                btn.onclick = () => {
+                    currentDay = i;
+                    renderDays();
+                    renderWords();
+                    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                };
+                selector.appendChild(btn);
+            }
+        }
+
+        function renderWords() {
+            const listContainer = document.getElementById('word-list');
+            const topicEl = document.getElementById('current-topic');
+            const countEl = document.getElementById('word-count');
+            
+            listContainer.innerHTML = '';
+            
+            const dayData = vocaData[currentDay];
+            
+            if (!dayData || !dayData.words || dayData.words.length === 0) {
+                topicEl.innerText = dayData ? dayData.topic : `Day ${currentDay} 학습`;
+                countEl.innerText = "0 단어";
+                listContainer.innerHTML = `
+                    <div class="text-center text-gray-500 mt-10">
+                        <i class="fas fa-hammer text-4xl mb-4 text-gray-300"></i>
+                        <p>Day ${currentDay} 단어 데이터가 없습니다.</p>
+                        <p class="text-sm mt-2">우측 상단 + 버튼을 눌러 단어를 추가해 보세요!</p>
+                    </div>`;
+                return;
+            }
+
+            topicEl.innerText = dayData.topic;
+            countEl.innerText = `${dayData.words.length} 단어`;
+            const totalWords = dayData.words.length;
+
+            dayData.words.forEach((item, index) => {
+                const wordCard = document.createElement('div');
+                wordCard.className = 'word-card bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 hover:shadow-md transition-all relative';
+                wordCard.draggable = true;
+
+                wordCard.ondragstart = (e) => handleDragStart(e, index);
+                wordCard.ondragover = (e) => handleDragOver(e);
+                wordCard.ondragleave = (e) => handleDragLeave(e);
+                wordCard.ondrop = (e) => handleDrop(e, index);
+                wordCard.ondragend = (e) => handleDragEnd(e);
+
+                let cardHTML = `
+                    <div class="flex items-start justify-between mb-3 border-b border-gray-100 pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="drag-handle text-gray-300 hover:text-indigo-500 py-1 px-0.5" title="드래그하여 순서 변경">
+                                <i class="fas fa-grip-vertical text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                    ${item.word}
+                                    <button class="speak-btn text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-full w-7 h-7 flex items-center justify-center transition-colors text-sm" onclick="speak('${item.word.replace(/'/g, "\\'")}')" title="단어 듣기">
+                                        <i class="fas fa-volume-up"></i>
+                                    </button>
+                                </h3>
+                                <p class="text-indigo-600 font-medium mt-0.5 text-base">${item.meaning}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1">
+                            <div class="flex flex-col bg-gray-50 rounded-lg p-0.5 border border-gray-100 mr-1">
+                                <button onclick="moveWord(${index}, -1)" ${index === 0 ? 'disabled' : ''} class="text-gray-400 hover:text-indigo-600 disabled:opacity-20 p-1 leading-none text-xs" title="위로">
+                                    <i class="fas fa-chevron-up"></i>
+                                </button>
+                                <button onclick="moveWord(${index}, 1)" ${index === totalWords - 1 ? 'disabled' : ''} class="text-gray-400 hover:text-indigo-600 disabled:opacity-20 p-1 leading-none text-xs" title="아래로">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <button onclick="openEditModal(${index})" class="text-gray-400 hover:text-indigo-600 transition-colors p-1.5 rounded hover:bg-gray-50" title="수정">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="openDeleteModal(${index})" class="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-gray-50" title="삭제">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                `;
+
+                if (item.examples && item.examples.length > 0) {
+                    item.examples.forEach((ex, exIndex) => {
+                        cardHTML += `
+                            <div class="bg-gray-50 p-3 rounded-lg relative group">
+                                <button class="speak-btn absolute top-3 right-3 text-gray-400 hover:text-indigo-500 opacity-50 group-hover:opacity-100 transition-opacity" onclick="speak('${ex.en.replace(/'/g, "\\'")}')" title="문장 듣기">
+                                    <i class="fas fa-volume-up text-sm"></i>
+                                </button>
+                                <p class="text-gray-800 pr-7 font-medium text-sm mb-1"><span class="text-indigo-400 font-bold mr-1">${exIndex + 1}.</span> ${ex.en}</p>
+                                <p class="text-gray-500 text-xs pl-4">${ex.ko}</p>
+                            </div>
+                        `;
+                    });
+                }
+
+                cardHTML += `</div>`;
+                wordCard.innerHTML = cardHTML;
+                listContainer.appendChild(wordCard);
+            });
+        }
+
+        // 앱 실행 시 시트 데이터 불러오기 시작
+        initData();
+    </script>
+</body>
+</html>
